@@ -357,7 +357,10 @@ namespace humblenet {
 
 				auto it = findOrCreateLobby( message->lobbyId(), message->lobby());
 
-				HumbleNet_Event event = {.lobby={ HUMBLENET_EVENT_LOBBY_CREATE_SUCCESS, msg->requestId(), it->first, it->second.ownerPeerId } };
+				HumbleNet_Event event = {HUMBLENET_EVENT_LOBBY_CREATE_SUCCESS};
+				event.common.request_id = msg->requestId();
+				event.lobby.lobby_id = it->first;
+				event.lobby.peer_id = it->second.ownerPeerId;
 				humblenet_event_push(event);
 			}
 				break;
@@ -365,7 +368,8 @@ namespace humblenet {
 			case HumblePeer::MessageType::LobbyCreateError: {
 				auto message = reinterpret_cast<const HumblePeer::Error*>(msg->message());
 
-				HumbleNet_Event event = {.common={ HUMBLENET_EVENT_LOBBY_CREATE_ERROR, msg->requestId() } };
+				HumbleNet_Event event = {HUMBLENET_EVENT_LOBBY_CREATE_ERROR};
+				event.common.request_id = msg->requestId();
 #pragma message ("TODO provide better error/message including contents from peer server?")
 				strcpy(event.error.error, "Failed to create lobby");
 				humblenet_event_push(event);
@@ -377,8 +381,10 @@ namespace humblenet {
 
 				decltype(humbleNetState.lobbies)::iterator it;
 
-				HumbleNet_Event event = {.lobby={HUMBLENET_EVENT_LOBBY_JOIN, msg->requestId(),
-												 message->lobbyId(), message->peerId()}};
+				HumbleNet_Event event = {HUMBLENET_EVENT_LOBBY_JOIN};
+				event.common.request_id = msg->requestId();
+				event.lobby.lobby_id = message->lobbyId();
+				event.lobby.peer_id = message->peerId();
 
 				if (msg->requestId()) {
 					it = findOrCreateLobby( message->lobbyId(), message->lobby());
@@ -404,7 +410,8 @@ namespace humblenet {
 			case HumblePeer::MessageType::LobbyJoinError: {
 				auto message = reinterpret_cast<const HumblePeer::Error*>(msg->message());
 
-				HumbleNet_Event event = {.common={ HUMBLENET_EVENT_LOBBY_JOIN_ERROR, msg->requestId() } };
+				HumbleNet_Event event = {HUMBLENET_EVENT_LOBBY_JOIN_ERROR};
+				event.common.request_id = msg->requestId();
 #pragma message ("TODO provide better error/message including contents from peer server?")
 				strcpy(event.error.error, "Failed to join lobby");
 				humblenet_event_push(event);
@@ -418,14 +425,18 @@ namespace humblenet {
 				if (message->peerId() == humbleNetState.myPeerId) {
 					humbleNetState.lobbies.erase( it );
 
-					HumbleNet_Event event = {.lobby={HUMBLENET_EVENT_LOBBY_LEAVE, msg->requestId(),
-													 message->lobbyId(), message->peerId()}};
+					HumbleNet_Event event = {HUMBLENET_EVENT_LOBBY_LEAVE};
+					event.common.request_id = msg->requestId();
+					event.lobby.lobby_id = message->lobbyId();
+					event.lobby.peer_id = message->peerId();
 					humblenet_event_push( event );
 				} else if (it != humbleNetState.lobbies.end()) {
 					it->second.removePeer( message->peerId());
 
-					HumbleNet_Event event = {.lobby={HUMBLENET_EVENT_LOBBY_MEMBER_LEAVE, msg->requestId(),
-													 message->lobbyId(), message->peerId()}};
+					HumbleNet_Event event = {HUMBLENET_EVENT_LOBBY_MEMBER_LEAVE};
+					event.common.request_id = msg->requestId();
+					event.lobby.lobby_id = message->lobbyId();
+					event.lobby.peer_id = message->peerId();
 					humblenet_event_push( event );
 				} else {
 #pragma message("TODO Determine how to handle edge case of invalid server message")
@@ -436,7 +447,8 @@ namespace humblenet {
 			case HumblePeer::MessageType::LobbyLeaveError: {
 				auto message = reinterpret_cast<const HumblePeer::Error*>(msg->message());
 
-				HumbleNet_Event event = {.common={ HUMBLENET_EVENT_LOBBY_LEAVE_ERROR, msg->requestId() } };
+				HumbleNet_Event event = {HUMBLENET_EVENT_LOBBY_LEAVE_ERROR};
+				event.common.request_id = msg->requestId();
 #pragma message ("TODO provide better error/message including contents from peer server?")
 				strcpy(event.error.error, "Failed to leave lobby");
 				humblenet_event_push(event);
@@ -459,7 +471,9 @@ namespace humblenet {
 						it->second.maxMembers = message->maxMembers();
 					}
 
-					HumbleNet_Event event = {.lobby={HUMBLENET_EVENT_LOBBY_UPDATE, msg->requestId(), it->first}};
+					HumbleNet_Event event = {HUMBLENET_EVENT_LOBBY_UPDATE};
+					event.common.request_id = msg->requestId();
+					event.lobby.lobby_id = it->first;
 					humblenet_event_push(event);
 				}
 			}
@@ -468,7 +482,8 @@ namespace humblenet {
 			case HumblePeer::MessageType::LobbyUpdateError: {
 				auto message = reinterpret_cast<const HumblePeer::Error*>(msg->message());
 
-				HumbleNet_Event event = {.common={ HUMBLENET_EVENT_LOBBY_UPDATE_ERROR, msg->requestId() } };
+				HumbleNet_Event event = {HUMBLENET_EVENT_LOBBY_UPDATE_ERROR};
+				event.common.request_id = msg->requestId();
 #pragma message ("TODO provide better error/message including contents from peer server?")
 				strcpy(event.error.error, "Failed to update lobby");
 				humblenet_event_push(event);
@@ -485,8 +500,10 @@ namespace humblenet {
 					if (mit != it->second.members.end()) {
 						applyAttributes( mit->second, message->attributeSet());
 
-						HumbleNet_Event event = {.lobby={HUMBLENET_EVENT_LOBBY_MEMBER_UPDATE, msg->requestId(),
-														 it->first, mit->first}};
+						HumbleNet_Event event = {HUMBLENET_EVENT_LOBBY_MEMBER_UPDATE};
+						event.common.request_id = msg->requestId();
+						event.lobby.lobby_id = it->first;
+						event.lobby.peer_id = mit->first;
 						humblenet_event_push( event );
 					}
 				}
@@ -496,7 +513,8 @@ namespace humblenet {
 			case HumblePeer::MessageType::LobbyMemberUpdateError: {
 				auto message = reinterpret_cast<const HumblePeer::Error*>(msg->message());
 
-				HumbleNet_Event event = {.common={ HUMBLENET_EVENT_LOBBY_MEMBER_UPDATE_ERROR, msg->requestId() } };
+				HumbleNet_Event event = { HUMBLENET_EVENT_LOBBY_MEMBER_UPDATE_ERROR};
+				event.common.request_id = msg->requestId();
 #pragma message ("TODO provide better error/message including contents from peer server?")
 				strcpy(event.error.error, "Failed to update lobby member");
 				humblenet_event_push(event);
