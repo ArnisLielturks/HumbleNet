@@ -64,6 +64,46 @@ struct internal_context_t {
 	struct libwebrtc_context* webrtc;
 };
 
+static const char* WS_MESSAGE_STRINGS[] = {
+        "LWS_CALLBACK_ESTABLISHED",
+        "LWS_CALLBACK_CLIENT_CONNECTION_ERROR",
+        "LWS_CALLBACK_CLIENT_FILTER_PRE_ESTABLISH",
+        "LWS_CALLBACK_CLIENT_ESTABLISHED",
+        "LWS_CALLBACK_CLOSED",
+        "LWS_CALLBACK_CLOSED_HTTP",
+        "LWS_CALLBACK_RECEIVE",
+        "LWS_CALLBACK_CLIENT_RECEIVE",
+        "LWS_CALLBACK_CLIENT_RECEIVE_PONG",
+        "LWS_CALLBACK_CLIENT_WRITEABLE",
+        "LWS_CALLBACK_SERVER_WRITEABLE",
+        "LWS_CALLBACK_HTTP",
+        "LWS_CALLBACK_HTTP_BODY",
+        "LWS_CALLBACK_HTTP_BODY_COMPLETION",
+        "LWS_CALLBACK_HTTP_FILE_COMPLETION",
+        "LWS_CALLBACK_HTTP_WRITEABLE",
+        "LWS_CALLBACK_FILTER_NETWORK_CONNECTION",
+        "LWS_CALLBACK_FILTER_HTTP_CONNECTION",
+        "LWS_CALLBACK_SERVER_NEW_CLIENT_INSTANTIATED",
+        "LWS_CALLBACK_FILTER_PROTOCOL_CONNECTION",
+        "LWS_CALLBACK_OPENSSL_LOAD_EXTRA_CLIENT_VERIFY_CERTS",
+        "LWS_CALLBACK_OPENSSL_LOAD_EXTRA_SERVER_VERIFY_CERTS",
+        "LWS_CALLBACK_OPENSSL_PERFORM_CLIENT_CERT_VERIFICATION",
+        "LWS_CALLBACK_CLIENT_APPEND_HANDSHAKE_HEADER",
+        "LWS_CALLBACK_CONFIRM_EXTENSION_OKAY",
+        "LWS_CALLBACK_CLIENT_CONFIRM_EXTENSION_SUPPORTED",
+        "LWS_CALLBACK_PROTOCOL_INIT",
+        "LWS_CALLBACK_PROTOCOL_DESTROY",
+        "LWS_CALLBACK_WSI_CREATE",
+        "LWS_CALLBACK_WSI_DESTROY",
+        "LWS_CALLBACK_GET_THREAD_ID",
+        "LWS_CALLBACK_ADD_POLL_FD",
+        "LWS_CALLBACK_DEL_POLL_FD",
+        "LWS_CALLBACK_CHANGE_MODE_POLL_FD",
+        "LWS_CALLBACK_LOCK_POLL",
+        "LWS_CALLBACK_UNLOCK_POLL",
+        "LWS_CALLBACK_USER",
+};
+
 static internal_context_t* g_context;
 
 int websocket_protocol(struct libwebsocket_context *context
@@ -72,8 +112,10 @@ int websocket_protocol(struct libwebsocket_context *context
 					   , void *user, void *in, size_t len) {
 
 //	LOG("%p %p %d %p\n", context, wsi, reason, user );
+    LOG("websocket_protocol reason=%d, name=%s\n", reason, WS_MESSAGE_STRINGS[reason]);
 
 	internal_socket_t* socket = reinterpret_cast<internal_socket_t*>( user );
+
 
 	int ret = 0;
 	
@@ -191,7 +233,9 @@ int webrtc_protocol(struct libwebrtc_context *context,
 {
 	internal_socket_t* socket = reinterpret_cast<internal_socket_t*>( user );
 
-//	LOG("%p %p %p %d %p\n", context, connection, channel, reason, user );
+//	if (reason != LWRTC_CALLBACK_CHANNEL_RECEIVE) {
+        LOG(">>>> webrtc_protocol reason = %d\n", reason);
+//    }
 
 	int ret = 0;
 	
@@ -315,6 +359,44 @@ internal_context_t* internal_init(internal_callbacks_t* callbacks) {
 	return ctx;
 }
 
+internal_context_t* internal_init_custom_protocol(internal_callbacks_t* callbacks, struct libwebsocket_protocols customProtocols[MAX_PROTOCOLS])
+{
+    internal_context_t* ctx = new internal_context_t();
+
+    if( callbacks )
+        ctx->callbacks= *callbacks;
+
+    sanitize_callbacks( ctx->callbacks );
+
+    struct lws_context_creation_info info;
+    memset(&info, 0, sizeof(info));
+    info.protocols = customProtocols;
+    info.port = CONTEXT_PORT_NO_LISTEN;
+    info.gid = -1;
+    info.uid = -1;
+#if 0
+    #if defined __APPLE__ || defined(__linux__)
+	// test a few wll known locations
+	const char* certs[] = { "./cert.pem", "/etc/openssl/cert.pem", "/opt/local/etc/openssl/cert.pem", "/etc/pki/tls/cert.pem" , NULL };
+	for( const char** test = certs; *test; test++ ) {
+		if( access( *test, F_OK ) != -1 ) {
+			info.ssl_ca_filepath = *test;
+			break;
+		}
+	}
+#elif defined(WIN32)
+	info.ssl_ca_filepath = "cert.pem";
+#endif
+#endif
+
+    ctx->websocket = libwebsocket_create_context_extended(&info);
+    ctx->webrtc = libwebrtc_create_context(&webrtc_protocol);
+
+    g_context = ctx;
+
+    return ctx;
+}
+
 bool internal_supports_webRTC(internal_context_t* ctx) {
 	return ctx->webrtc != NULL;
 }
@@ -325,9 +407,20 @@ void internal_set_stun_servers( internal_context_t* ctx, const char** servers, i
 
 	ctx->stunServerList.clear();
 	for( int i = 0; i < count; ++i ) {
+	    printf("AAAAA internal_set_stun_servers %s", *servers);
 		ctx->stunServerList.push_back( *servers );
 		servers++;
 	}
+}
+
+void internal_set_turn_server(internal_context_t* ctx, const char* address, const char* username, const char* password)
+{
+    if( ctx->webrtc )
+        libwebrtc_set_turn_server( ctx->webrtc, address, username, password);
+
+    ctx->turnServer = address;
+    ctx->turnUsername = username;
+    ctx->turnPassword = password;
 }
 
 void internal_set_callbacks(internal_socket_t* socket, internal_callbacks_t* callbacks ) {

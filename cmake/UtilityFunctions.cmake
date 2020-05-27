@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 2.8.12)
 
+if(POLICY CMP0025)
+    cmake_policy(SET CMP0025 OLD)
+endif()
+
 ### build up utility functions
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
@@ -336,7 +340,7 @@ function(_BuildDynamicTarget name type)
     endif()
     if(_features)
         _SetDefaultScope(_features PRIVATE)
-        target_compile_features(${name} ${_features})
+     #   target_compile_features(${name} ${_features})
     endif()
     if(_link_libs)
         target_link_libraries(${name} ${_link_libs})

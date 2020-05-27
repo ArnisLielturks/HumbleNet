@@ -74,7 +74,7 @@ typedef struct
 	char g_selfid[UTIL_HASHSIZE];
 
 	ILibWebRTC_TURN_ConnectFlags mTurnSetting;
-	struct sockaddr_in6 mTurnServer;
+	struct sockaddr_in mTurnServer;
 	char* mTurnServerUsername;
 	int mTurnServerUsernameLen;
 	char* mTurnServerPassword;
@@ -235,11 +235,16 @@ int ILibWrapper_SdpToBlock(char* sdp, int sdpLen, int *isActive, char **username
 				tmp[pr2->FirstResult->NextResult->NextResult->NextResult->NextResult->NextResult->datalength] = 0;
 				port = atoi(tmp);
 				
-				pr3 = ILibParseString(pr2->FirstResult->NextResult->NextResult->NextResult->NextResult->data, 0, pr2->FirstResult->NextResult->NextResult->NextResult->NextResult->datalength, ".", 1);					
+				pr3 = ILibParseString(pr2->FirstResult->NextResult->NextResult->NextResult->NextResult->data, 0, pr2->FirstResult->NextResult->NextResult->NextResult->NextResult->datalength, ".", 1);
 				if (pr3->NumResults == 4)
 				{
+                    printf("\nClient sent IPV4 address\n");
 					candidateData = pr3->FirstResult->data;
 					pr3->FirstResult->data[pr3->FirstResult->datalength] = 0;
+					printf("[0]atoi(pr3->FirstResult->data) %d\n", atoi(pr3->FirstResult->data));
+                    printf("[1]atoi(pr3->FirstResult->NextResult->data) %d\n", atoi(pr3->FirstResult->NextResult->data));
+                    printf("[2]atoi(pr3->FirstResult->NextResult->NextResult->data) %d\n", atoi(pr3->FirstResult->NextResult->NextResult->data));
+                    printf("[3]atoi(pr3->FirstResult->NextResult->NextResult->NextResult->data) %d\n", atoi(pr3->FirstResult->NextResult->NextResult->NextResult->data));
 					candidateData[0] = (char)atoi(pr3->FirstResult->data);
 					pr3->FirstResult->NextResult->data[pr3->FirstResult->NextResult->datalength] = 0;
 					candidateData[1] = (char)atoi(pr3->FirstResult->NextResult->data);
@@ -253,6 +258,39 @@ int ILibWrapper_SdpToBlock(char* sdp, int sdpLen, int *isActive, char **username
 
 					ILibPushStack(&candidates, candidateData);
 					++candidatecount;
+				} else if (pr3->NumResults == 2) {
+                    struct parser_result *pr4;
+                    struct parser_result *pr5;
+                    pr4 = ILibParseStringAdv(pr2->FirstResult->NextResult->NextResult->NextResult->NextResult->data, 0, pr2->FirstResult->NextResult->NextResult->NextResult->NextResult->datalength, " ", 1);
+                    printf("\nClient sent mDNS address %s\n", pr4->FirstResult->data);
+                    char* address = pr4->FirstResult->data;
+                    address[pr4->FirstResult->datalength] = '\0';
+                    struct hostent *res = gethostbyname(address);
+                    if (res) {
+                        char *IPbuffer = inet_ntoa(*((struct in_addr *)
+                                res->h_addr_list[0]));
+                        pr5 = ILibParseStringAdv(IPbuffer, 0, strlen(IPbuffer), ".", 1);
+                        printf("\nIP mDNS address translated to %s\n", IPbuffer);
+
+                        candidateData = IPbuffer;
+                        candidateData[strlen(IPbuffer)] = '\0';
+
+                        candidateData[0] = (char) atoi(pr5->FirstResult->data);
+                        pr5->FirstResult->NextResult->data[pr5->FirstResult->NextResult->datalength] = 0;
+                        candidateData[1] = (char) atoi(pr5->FirstResult->NextResult->data);
+                        pr5->FirstResult->NextResult->NextResult->data[pr5->FirstResult->NextResult->NextResult->datalength] = 0;
+                        candidateData[2] = (char) atoi(pr5->FirstResult->NextResult->NextResult->data);
+                        pr5->FirstResult->NextResult->NextResult->NextResult->data[pr5->FirstResult->NextResult->NextResult->NextResult->datalength] = 0;
+                        candidateData[3] = (char) atoi(pr5->FirstResult->NextResult->NextResult->NextResult->data);
+
+                        ((unsigned short *) candidateData)[2] = htons(port);
+                        candidateData[6] = 0;
+
+                        ILibPushStack(&candidates, candidateData);
+                        ++candidatecount;
+                        ILibDestructParserResults(pr5);
+                        ILibDestructParserResults(pr4);
+                    }
 				}
 				ILibDestructParserResults(pr3);
 			}
@@ -262,9 +300,10 @@ int ILibWrapper_SdpToBlock(char* sdp, int sdpLen, int *isActive, char **username
 		f = f->NextResult;
     }
 
-	if (*username == NULL || *password == NULL || dtlshash == NULL || candidatecount == 0)
+	if (*username == NULL || *password == NULL || dtlshash == NULL)
     {
 		*block = NULL;
+		printf("\n----AAAAAA cc: %d, usr: %s, pwd: %s, dtlshash: %s \n", candidatecount, username, password, dtlshash);
 		return(0);
     }
 
@@ -780,6 +819,7 @@ void ILibWrapper_WebRTC_Connection_SetStunServers(ILibWrapper_WebRTC_Connection 
 	for(i=0;i<serverLength;++i)
 	{
 		int sz = strlen(serverList[i]);
+		printf("Setting stun server %s\n", serverList[i]);
 		obj->stunServerList[i] = (char*)malloc(sz+1);
 		(obj->stunServerList[i])[sz] = 0;
 		memcpy(obj->stunServerList[i], serverList[i], sz);
@@ -794,6 +834,7 @@ int ILibWrapper_WebRTC_PerformStunEx(ILibWrapper_WebRTC_ConnectionStruct *connec
 	char temp[255];
 	char *host;
 
+	printf("ILibWrapper_WebRTC_PerformStunEx \n");
 	if(connection->stunServerListLength > 0)
 	{
 		for(i=0;i<connection->stunServerListLength;++i)
@@ -838,6 +879,7 @@ int ILibWrapper_WebRTC_PerformStunEx(ILibWrapper_WebRTC_ConnectionStruct *connec
 			else
 			{
 				connection->stunServerFlags[i] = 2; // Could not resolve, so skip, and use another server
+				printf("AAAA connection->stunServerFlags[i] = 2\n");
 			}
 		}
 		return(i<connection->stunServerListLength?0:1);
@@ -876,8 +918,15 @@ char* ILibWrapper_WebRTC_Connection_SetOffer(ILibWrapper_WebRTC_Connection conne
 
 	obj->offerBlockLen = ILibStun_SetIceOffer2(obj->mFactory->mStunModule, obj->remoteOfferBlock, obj->remoteOfferBlockLen, obj->offerBlock != NULL ? obj->localUsername : NULL, obj->offerBlock != NULL ? 8 : 0, obj->offerBlock != NULL ? obj->localPassword : NULL, obj->offerBlock != NULL ? 32 : 0, &obj->offerBlock);
 	if( obj->offerBlockLen <= 0 ) {
-		ILibRemoteLogging_printf(ILibChainGetLogger(obj->mFactory->mChain), ILibRemoteLogging_Modules_WebRTC_STUN_ICE, ILibRemoteLogging_Flags_VerbosityLevel_1, "[ILibWrapperWebRTC] Unable to set new offer");
-		return NULL;
+        obj->offerBlockLen = ILibStun_SetIceOffer(obj->mFactory->mStunModule, obj->remoteOfferBlock, obj->remoteOfferBlockLen, &obj->offerBlock);
+        if( obj->offerBlockLen <= 0 ) {
+            printf("\n========= %d", obj->offerBlockLen);
+            printf("\nILibStun_SetIceOffer2 <= 0\n");ILibRemoteLogging_printf(ILibChainGetLogger(obj->mFactory->mChain),
+                                                    ILibRemoteLogging_Modules_WebRTC_STUN_ICE,
+                                                    ILibRemoteLogging_Flags_VerbosityLevel_1,
+                                                    "[ILibWrapperWebRTC] Unable to set new offer");
+            return NULL;
+        }
 	}
 
 	ILibWrapper_BlockToSDP(obj->offerBlock, obj->offerBlockLen, obj->isOfferInitiator, &un, &up, &sdp);
@@ -1055,12 +1104,12 @@ ILibWrapper_WebRTC_DataChannel* ILibWrapper_WebRTC_DataChannel_CreateEx(ILibWrap
 	ILibWebRTC_OpenDataChannel(((ILibWrapper_WebRTC_ConnectionStruct*)connection)->dtlsSession, streamId, channelName, channelNameLen);
 	return(retVal);
 }
-void ILibWrapper_WebRTC_ConnectionFactory_SetTurnServer(ILibWrapper_WebRTC_ConnectionFactory factory, struct sockaddr_in6* turnServer, char* username, int usernameLength, char* password, int passwordLength, ILibWebRTC_TURN_ConnectFlags turnSetting)
+void ILibWrapper_WebRTC_ConnectionFactory_SetTurnServer(ILibWrapper_WebRTC_ConnectionFactory factory, struct sockaddr_in* turnServer, char* username, int usernameLength, char* password, int passwordLength, ILibWebRTC_TURN_ConnectFlags turnSetting)
 {
 	ILibWrapper_WebRTC_ConnectionFactoryStruct *cf = (ILibWrapper_WebRTC_ConnectionFactoryStruct*)factory;
 	cf->mTurnSetting = turnSetting;
 
-	if(turnServer != NULL) {memcpy(&(cf->mTurnServer), turnServer, INET_SOCKADDR_LENGTH(turnServer->sin6_family));}
+	if(turnServer != NULL) {memcpy(&(cf->mTurnServer), turnServer, INET_SOCKADDR_LENGTH(turnServer->sin_family));}
 	if(cf->mTurnServerUsername!=NULL) {free(cf->mTurnServerUsername);cf->mTurnServerUsername = NULL;}
 	if(cf->mTurnServerPassword!=NULL) {free(cf->mTurnServerPassword);cf->mTurnServerPassword = NULL;}
 

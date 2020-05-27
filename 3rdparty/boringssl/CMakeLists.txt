@@ -1,5 +1,10 @@
 cmake_minimum_required (VERSION 2.8.10)
 
+message(STATUS ">>>>>>>>>> ${WEB} ${EMSCRIPTEN}")
+if (EMSCRIPTEN OR WEB)
+  return ()
+endif()
+
 # Defer enabling C and CXX languages.
 project (BoringSSL NONE)
 

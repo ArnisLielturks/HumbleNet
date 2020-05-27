@@ -49,8 +49,8 @@ if(HUMBLENET_DESKTOP)
 	set(CERT_PEM_H ${CMAKE_CURRENT_BINARY_DIR}/cert_pem.h)
 endif()
 
-GenerateFlatBuffer(FLATBUFFER_SOURCES SCOPED_ENUMS humblepeer/humblepeer.fbs)
-
+#GenerateFlatBuffer(FLATBUFFER_SOURCES SCOPED_ENUMS humblepeer/humblepeer.fbs)
+#message(STATUS "AAA ${CMAKE_CURRENT_SOURCE_DIR}/../../3rdparty/flatbuffers/include")
 CreateLibrary(humblepeer
 	DIRS
 		humblepeer
@@ -63,6 +63,7 @@ CreateLibrary(humblepeer
 			${CMAKE_CURRENT_BINARY_DIR}
 			include
 			humblepeer
+#			${CMAKE_CURRENT_SOURCE_DIR}/../../3rdparty/flatbuffers/include
 		INTERFACE
 			src
 	FLAGS
@@ -72,7 +73,7 @@ CreateLibrary(humblepeer
 		cxx_auto_type cxx_range_for cxx_strong_enums
 	LINK
 		PUBLIC
-			flatbuffers
+#			flatbuffers
 		PRIVATE
 			crc
 			sha1
@@ -148,7 +149,7 @@ if(HUMBLENET_DESKTOP)
 	add_custom_target(humblenet_asmjs_amalgamation
 		COMMAND Amalgamate
 			-i src -i humblepeer -i include -i ${CMAKE_CURRENT_BINARY_DIR}
-			-i ../../3rdparty/flatbuffers/include
+#			-i ../../3rdparty/flatbuffers/include
 			-i ../../3rdparty/crc
 			-i ../../3rdparty/sha1
 			humblenet_asmjs_amalgam_template.cpp

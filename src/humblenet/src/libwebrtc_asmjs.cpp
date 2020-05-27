@@ -227,6 +227,7 @@ struct libwebrtc_context* libwebrtc_create_context( lwrtc_callback_function call
 		};
 		libwebrtc.on_channel_error = function(event){
 			Module.print("Got channel error: " + event);
+			console.log('aaa', event);
 			this.close();
 		};
 		libwebrtc.on_channel_close = function(event){
@@ -279,9 +280,22 @@ void libwebrtc_set_stun_servers( struct libwebrtc_context* ctx, const char** ser
 			var server = {};
 			server.urls = "stun:" + UTF8ToString($0);
 			Module.__libwebrtc.options.iceServers.push( server );
+
 		}, *servers);
 		servers++;
 	}
+}
+
+void libwebrtc_set_turn_server( struct libwebrtc_context* ctx, const char* address, const char* username, const char* password)
+{
+    EM_ASM_INT({
+			var server = {};
+			server.urls = "turn:" + UTF8ToString($0);
+			server.username = UTF8ToString($1);
+			server.credential = UTF8ToString($2);
+			Module.__libwebrtc.options.iceServers.push( server );
+
+		}, address, username, password);
 }
 
 struct libwebrtc_connection* libwebrtc_create_connection_extended(struct libwebrtc_context* ctx, void* user_data) {

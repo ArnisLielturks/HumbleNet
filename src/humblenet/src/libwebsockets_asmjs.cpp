@@ -16,7 +16,7 @@ extern "C" int EMSCRIPTEN_KEEPALIVE libwebsocket_helper( int protocol, struct li
 														struct libwebsocket *wsi,
 														enum libwebsocket_callback_reasons reason, void *user,
 														void *in, size_t len ) {
-	LOG("%d -> %d -> %p -> %d\n", protocol, reason, in, (int)len );
+//	LOG("protocol %d -> reason %d -> in %p -> len %d\n", protocol, reason, in, (int)len );
 
 	if( reason == LWS_CALLBACK_WSI_DESTROY ) {
 		context->protocols[protocol].callback( context, wsi, reason, user, in, len );

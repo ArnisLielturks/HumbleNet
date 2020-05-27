@@ -12,7 +12,6 @@
 #include "libpoll.h"
 
 #include <cassert>
-
 //#include <map>
 #include <string>
 #include <vector>
@@ -38,6 +37,9 @@ struct libwebrtc_context {
 	ILibWrapper_WebRTC_ConnectionFactory factory;
 	std::vector<std::string> stunServers;
 	lwrtc_callback_function callback;
+	std::string turnServer;
+	std::string turnServerUsername;
+	std::string turnServerPassword;
 };
 
 // User data fields stored in ILibWrapper_XXXX_SetUserData
@@ -222,6 +224,40 @@ void libwebrtc_set_stun_servers( struct libwebrtc_context* ctx, const char** ser
 	}
 }
 
+void libwebrtc_set_turn_server( struct libwebrtc_context* ctx, const char* address, const char* username, const char* password)
+{
+    // TODO: not yet working
+    return;
+    ctx->turnServer = address;
+    ctx->turnServerUsername = username;
+    ctx->turnServerPassword = password;
+
+    sockaddr_in turnAddress;
+    printf("Turn server setup %s;%s;%s\n", ctx->turnServer.c_str(), ctx->turnServerUsername.c_str(), ctx->turnServerPassword.c_str());
+
+    struct parser_result *pr;
+    pr = ILibParseString((char*) ctx->turnServer.c_str(), 0, ctx->turnServer.size(), ":", 1);
+    pr->FirstResult->data[pr->FirstResult->datalength] = '\0';
+
+    int res = inet_pton(AF_INET, pr->FirstResult->data, &turnAddress);
+    turnAddress.sin_port = atoi(pr->FirstResult->NextResult->data);
+    turnAddress.sin_family = AF_INET;
+
+    printf("Port: %s -> %d\n", pr->FirstResult->NextResult->data, turnAddress.sin_port);
+    printf("Adddress: %s\n", pr->FirstResult->data);
+    if (res == 1) {
+        ILibWrapper_WebRTC_ConnectionFactory_SetTurnServer(ctx->factory, &turnAddress,
+                                                           (char *) ctx->turnServerUsername.c_str(),
+                                                           ctx->turnServerUsername.size(),
+                                                           (char *) ctx->turnServerPassword.c_str(),
+                                                           ctx->turnServerPassword.size(),
+                                                           ILibWebRTC_TURN_ALWAYS_RELAY);
+        printf("Turn server set\n");
+    } else {
+        printf("Turn server setting failed %d\n", res);
+    }
+}
+
 struct libwebrtc_connection* libwebrtc_create_connection_extended( struct libwebrtc_context* ctx, void* user_data )
 {
 	ILibWrapper_WebRTC_Connection conn = ILibWrapper_WebRTC_ConnectionFactory_CreateConnection(ctx->factory, &WebRTCConnectionStatus, &WebRTCDataChannelAccept, &WebRTCConnectionSendOk);
@@ -291,9 +327,12 @@ int libwebrtc_set_offer( struct libwebrtc_connection* conn, const char* sdp ) {
 		sdp = tmp.c_str();
 	}
 
+
 	char* offer = ILibWrapper_WebRTC_Connection_SetOffer(connection, (char*)sdp, strlen(sdp), &WebRTCOnIceCandidate);
-	if( offer == NULL )
-		return 0;
+	if( offer == NULL ) {
+	    LOG("offer = ILibWrapper_WebRTC_Connection_SetOffer == NULL");
+        return 0;
+    }
 	
 	// always send this offer, as the callback will only send additianal candidates
 	ctx->callback(ctx, conn, NULL, LWRTC_CALLBACK_LOCAL_DESCRIPTION, user_data, offer, strlen(offer));

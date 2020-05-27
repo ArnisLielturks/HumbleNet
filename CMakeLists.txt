@@ -1,6 +1,10 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.1)
 set(CMAKE_USER_MAKE_RULES_OVERRIDE ${CMAKE_CURRENT_SOURCE_DIR}/cmake/c_flag_overrides.cmake)
 set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_flag_overrides.cmake)
+#
+#if (WEB)
+#	set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wimplicit-fallthrough=0")
+#endif()
 
 PROJECT(humblenet)
 
@@ -11,65 +15,75 @@ if(APPLE)
 	set(CMAKE_OSX_DEPLOYMENT_TARGET 10.9 CACHE STRING "" FORCE)
 endif()
 
-include(BoilerPlate)
+#include(BoilerPlate)
 include(UtilityFunctions)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
+set(HUMBLENET_NATIVE OFF)
+set(HUMBLENET_DESKTOP OFF)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 if(WIN32 OR LINUX OR APPLE)
-	set(HUMBLENET_NATIVE ON)
-	set(HUMBLENET_DESKTOP ON)
+	if (NOT EMSCRIPTEN AND NOT WEB)
+		set(HUMBLENET_NATIVE ON)
+		set(HUMBLENET_DESKTOP ON)
+	endif()
 endif()
 
+message(STATUS "${HUMBLENET_NATIVE} ${HUMBLENET_DESKTOP} AAA ${WEB} ${EMSCRIPTEN}")
+
 option(HUMBLENET_SERVER "Build the humblenet Server" ${HUMBLENET_DESKTOP})
-option(HUMBLENET_TESTS "Build the humblenet tests" ON)
+option(HUMBLENET_TESTS "Build the humblenet tests" OFF)
 
 if(LINUX OR APPLE)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fvisibility=hidden")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
 endif()
 
-find_program(FLATC_EXECUTABLE
-	NAMES flatc
-	NO_CMAKE_FIND_ROOT_PATH
-)
+#find_program(FLATC_EXECUTABLE
+#	NAMES flatc
+#	NO_CMAKE_FIND_ROOT_PATH
+#)
+#
+#if(NOT FLATC_EXECUTABLE)
+#	message(WARNING "Flatc not found.  Flatbuffers headers will not be rebuilt.  Please install flatc.")
+#endif()
 
-if(NOT FLATC_EXECUTABLE)
-	message(WARNING "Flatc not found.  Flatbuffers headers will not be rebuilt.  Please install flatc.")
-endif()
+#function(GenerateFlatBuffer outvar)
+#	set(_extra_args "")
+#	foreach(_fbs ${ARGN})
+#		if (_fbs STREQUAL "SCOPED_ENUMS")
+#			list(APPEND _extra_args --scoped-enums)
+#		else()
+#			get_filename_component(_full_fbs ${_fbs} ABSOLUTE)
+#			if(NOT EXISTS ${_full_fbs})
+#				message(FATAL_ERROR "Could not found input files ${_fbs}")
+#			endif()
+#			get_filename_component(_base_name ${_fbs} NAME_WE)
+#			set(_output ${CMAKE_CURRENT_BINARY_DIR}/${_base_name}_generated.h)
+#			list(APPEND _generated_sources ${_output})
+#			if (FLATC_EXECUTABLE)
+#				set_source_files_properties(${_output} PROPERTIES GENERATED ON)
+#				add_custom_command(
+#					OUTPUT ${_output}
+#					COMMAND ${FLATC_EXECUTABLE}
+#					ARGS -o ${CMAKE_CURRENT_BINARY_DIR} ${_extra_args} --cpp ${_full_fbs}
+#					DEPENDS ${_full_fbs}
+#					COMMENT "Generating flatbuffer source for ${_fbs}"
+#				)
+#			endif()
+#		endif()
+#	endforeach()
+#	set(${outvar} ${_generated_sources} PARENT_SCOPE)
+#endfunction()
 
-function(GenerateFlatBuffer outvar)
-	set(_extra_args "")
-	foreach(_fbs ${ARGN})
-		if (_fbs STREQUAL "SCOPED_ENUMS")
-			list(APPEND _extra_args --scoped-enums)
-		else()
-			get_filename_component(_full_fbs ${_fbs} ABSOLUTE)
-			if(NOT EXISTS ${_full_fbs})
-				message(FATAL_ERROR "Could not found input files ${_fbs}")
-			endif()
-			get_filename_component(_base_name ${_fbs} NAME_WE)
-			set(_output ${CMAKE_CURRENT_BINARY_DIR}/${_base_name}_generated.h)
-			list(APPEND _generated_sources ${_output})
-			if (FLATC_EXECUTABLE)
-				set_source_files_properties(${_output} PROPERTIES GENERATED ON)
-				add_custom_command(
-					OUTPUT ${_output}
-					COMMAND ${FLATC_EXECUTABLE}
-					ARGS -o ${CMAKE_CURRENT_BINARY_DIR} ${_extra_args} --cpp ${_full_fbs}
-					DEPENDS ${_full_fbs}
-					COMMENT "Generating flatbuffer source for ${_fbs}"
-				)
-			endif()
-		endif()
-	endforeach()
-	set(${outvar} ${_generated_sources} PARENT_SCOPE)
-endfunction()
-
-add_library(flatbuffers INTERFACE)
-target_include_directories(flatbuffers INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/flatbuffers/include)
+#add_library(flatbuffers INTERFACE)
+#target_include_directories(flatbuffers INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/flatbuffers/include)
 
 
 if(HUMBLENET_NATIVE)
@@ -117,6 +131,7 @@ if(HUMBLENET_NATIVE)
 				-DOPENSSL_NO_ASM:BOOL=ON
 				-DBUILD_TESTS:BOOL=OFF
 				-DBUILD_TOOLS:BOOL=OFF
+				-DWEB:BOOL=${WEB}
 				${LINUX_ARCH_CONFIG}
 		)
 
@@ -186,6 +201,7 @@ if(HUMBLENET_NATIVE)
 			${LWS_BORING_CONFIG}
 			${LINUX_ARCH_CONFIG}
 	)
+
 	if(USE_BORINGSSL)
 		ExternalProject_Add_StepDependencies(websockets-build configure BoringSSL-build)
 	endif()
@@ -268,10 +284,12 @@ if(HUMBLENET_DESKTOP)
 endif()
 add_subdirectory(3rdparty/crc				crc)
 add_subdirectory(3rdparty/sha1				sha1)
+#add_subdirectory(3rdparty/flatbuffers       flatbuffers)
 add_subdirectory(src/humblenet				humblenet)
-if(HUMBLENET_SERVER)
-	add_subdirectory(src/peer-server		peer-server-build)
-endif()
+#include_directories(3rdparty/flatbuffers/include)
 if(HUMBLENET_TESTS)
 	add_subdirectory(tests					test)
 endif()
+
+install_header_files (DIRECTORY src/humblenet/src DESTINATION ${DEST_INCLUDE_DIR}/ThirdParty/HumbleNet FILES_MATCHING PATTERN *.h BUILD_TREE_ONLY)  # Note: the trailing slash is significant
+install_header_files (DIRECTORY 3rdparty/libwebsockets/lib DESTINATION ${DEST_INCLUDE_DIR}/ThirdParty/HumbleNet FILES_MATCHING PATTERN *.h BUILD_TREE_ONLY)  # Note: the trailing slash is significant

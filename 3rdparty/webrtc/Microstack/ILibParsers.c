@@ -4252,7 +4252,8 @@ SOCKET ILibGetSocket(struct sockaddr *localif, int type, int protocol)
 #if defined(WIN32)
 	if (bind(sock, localif, INET_SOCKADDR_LENGTH(localif->sa_family)) != 0) { ILIBMARKPOSITION(3); closesocket(sock); return 0; }
 #else
-	if (bind(sock, localif, INET_SOCKADDR_LENGTH(localif->sa_family)) != 0) { ILIBMARKPOSITION(4); close(sock); return 0; }
+    int res = bind(sock, localif, INET_SOCKADDR_LENGTH(localif->sa_family));
+	if (res != 0) { ILIBMARKPOSITION(4); printf("bind returned %d", res); close(sock); return 0; }
 #endif
 	return sock;
 }

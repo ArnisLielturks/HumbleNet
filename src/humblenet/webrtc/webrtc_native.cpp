@@ -34,6 +34,9 @@
 struct libwebrtc_context {
     lwrtc_callback_function callback;
     std::vector<std::string> stunServers;
+    std::string turnServer;
+    std::string turnUsername;
+    std::string turnPassword;
 
     std::unique_ptr<rtc::Thread> network_thread;
     std::unique_ptr<rtc::Thread> worker_thread;
@@ -321,6 +324,13 @@ WEBRTC_API void libwebrtc_set_stun_servers( struct libwebrtc_context* ctx, const
     }
 }
 
+WEBRTC_API void libwebrtc_set_turn_server( struct libwebrtc_context* ctx, const char* address, const char* username, const char* password)
+{
+    ctx->turnServer = address;
+    ctx->turnUsername = username;
+    ctx->turnPassword = password;
+}
+
 WEBRTC_API struct libwebrtc_connection* libwebrtc_create_connection_extended( struct libwebrtc_context* ctx, void* user_data )
 {
     webrtc::PeerConnectionInterface::RTCConfiguration config;
@@ -330,6 +340,7 @@ WEBRTC_API struct libwebrtc_connection* libwebrtc_create_connection_extended( st
         ice_server.uri = "stun:" + server;
         config.servers.push_back(ice_server);
     }
+    config.servers.push_back(ctx->turnServer.c_str(), ctx->turnUsername.c_str(), ctx->turnPassword.c_str());
 
     webrtc::FakeConstraints constraints;
 

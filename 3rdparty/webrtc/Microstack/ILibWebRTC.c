@@ -2408,7 +2408,10 @@ int ILibStun_SetIceOffer2(void *StunModule, char* iceOffer, int iceOfferLen, cha
 	int SelectedSlot = -1;
 	int candidateCount;
 
-	if (iceOffer == NULL || iceOfferLen == 0) return 0;
+	if (iceOffer == NULL || iceOfferLen == 0) {
+	    return -123;
+	    return 0;
+	}
 
 	ILibRemoteLogging_printf(ILibChainGetLogger(obj->Chain), ILibRemoteLogging_Modules_WebRTC_STUN_ICE, ILibRemoteLogging_Flags_VerbosityLevel_1, "Setting Ice Offer:");
 #ifdef _REMOTELOGGING
@@ -2474,7 +2477,8 @@ int ILibStun_SetIceOffer2(void *StunModule, char* iceOffer, int iceOfferLen, cha
 		ILibRemoteLogging_printf(ILibChainGetLogger(obj->Chain), ILibRemoteLogging_Modules_WebRTC_STUN_ICE, ILibRemoteLogging_Flags_VerbosityLevel_1, "...Unable to update/add offer");
 		free(state->offerblock);
 		free(state);
-		return 0;
+
+		return -111;
 	}
 	else
 	{
@@ -2540,6 +2544,7 @@ int ILibStun_SetIceOffer2(void *StunModule, char* iceOffer, int iceOfferLen, cha
 		}
 		ILibTURN_CreatePermission(state->parentStunModule->mTurnClientModule, permission, state->hostcandidatecount, ILibStun_SetIceOffer2_TURN_CreatePermissionResponse, (void*)(uintptr_t)SelectedSlot); // We are casting SelectedSlot this way, becuase it will always be < 255
 		free(permission);
+		return -444;
 		return rlen;
 		// We are returning here, because if we need to create permissions on the TURN server, we need to wait for it to complete, 
 		// otherwise if we try to send the packets below, they'll get dropped... So we'll send those packets in the callback
@@ -2547,7 +2552,6 @@ int ILibStun_SetIceOffer2(void *StunModule, char* iceOffer, int iceOfferLen, cha
 
 
 	ILibStun_ICE_Start(state, SelectedSlot);
-
 
 	return rlen;
 }
@@ -5251,6 +5255,8 @@ void* ILibStunClient_Start(void *Chain, unsigned short LocalPort, ILibStunClient
 	ILibTURN_SetTag(obj->mTurnClientModule, obj);
 
 	g_stunModule = obj;
+
+    printf("ILibStunClient_Start\n");
 	return obj;
 }
 
@@ -5301,7 +5307,9 @@ void ILibStunClient_PerformNATBehaviorDiscovery(void* StunModule, struct sockadd
 void ILibStunClient_PerformStun(void* StunModule, struct sockaddr_in* StunServer, void *user)
 {
 	struct ILibStun_Module *obj = (struct ILibStun_Module*)StunModule;
+	printf("ILibStunClient_PerformStun 111\n");
 	if (StunServer->sin_family != AF_INET) return;
+    printf("ILibStunClient_PerformStun 222\n");
 	memcpy(&(obj->StunServer), StunServer, INET_SOCKADDR_LENGTH(StunServer->sin_family));
 	obj->user = user;
 	obj->State = STUN_STATUS_CHECKING_UDP_CONNECTIVITY;

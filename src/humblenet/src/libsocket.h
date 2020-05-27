@@ -40,7 +40,10 @@ struct internal_callbacks_t {
     int (*on_destroy)( internal_socket_t* s, void* user_data );
 };
 
+#define MAX_PROTOCOLS 16
+
 internal_context_t* internal_init(internal_callbacks_t*);
+internal_context_t* internal_init_custom_protocol(internal_callbacks_t*, struct libwebsocket_protocols customProtocols[MAX_PROTOCOLS]);
 void internal_deinit(internal_context_t*);
     
 bool internal_supports_webRTC( internal_context_t *);
@@ -48,6 +51,7 @@ void internal_register_protocol( internal_context_t*, const char* protocol, inte
     
 internal_socket_t* internal_connect_websocket( const char* addr, const char* protocol );
 void internal_set_stun_servers( internal_context_t*, const char** servers, int count);
+void internal_set_turn_server( internal_context_t*, const char* address, const char* username, const char* password);
 internal_socket_t* internal_create_webrtc(internal_context_t *);
 int internal_create_offer( internal_socket_t* socket );
 int internal_set_offer( internal_socket_t* socket, const char* offer );

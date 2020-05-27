@@ -31,8 +31,8 @@ struct LibWebSocket_Module : public poll_module_t {
 		Destroy = (poll_pre_destroy)OnPreDestroy;
 
 		// AAAAAIEEEEE!!!
-		assert( protocols[0].callback != &InterceptCallback );
-		
+//		assert( protocols[0].callback != &InterceptCallback );
+
 		this->protocols = protocols;
 		delegate = protocols[0].callback;
 		this->protocols[0].callback = &InterceptCallback;

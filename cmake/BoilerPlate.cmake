@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 2.8.12)
 
 ### setup options
 ## Include guard
-if(NOT BOILERPLATE_LOADED)
-    set(BOILERPLATE_LOADED ON)
+#if(NOT BOILERPLATE_LOADED)
+#    set(BOILERPLATE_LOADED ON)
 
 option(FULL_WARNINGS "Enable full warnings" OFF)
 option(ENABLE_SSE4 "Enable SSE 4" ${DEFAULT_ENABLE_SSE4})
